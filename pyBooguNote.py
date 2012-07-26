@@ -11,11 +11,12 @@ booAttributes = ('content', 'icon', 'branch', 'block', 'level', 'IsShown', 'IsBo
 
 class BooTreeItem(TreeItem):
     """TreeItem implemention of BooguNote boo file"""
-    def __init__(self, node, dom, filePath):
+    def __init__(self, node, dom, filePath, topObj):
         super().__init__()
         self.node = node
         self.dom = dom
         self.filePath = filePath
+        self.topObj = topObj
         self.defaultNode = parse('defaultNode.boo').childNodes[0]
 
     def GetText(self):
@@ -42,7 +43,7 @@ class BooTreeItem(TreeItem):
     def GetSubList(self):
         parent = self.node
         children = parent.childNodes
-        prelist = [BooTreeItem(node, self.dom, self.filePath) for node in children]
+        prelist = [BooTreeItem(node, self.dom, self.filePath, self.topObj) for node in children]
         itemlist = [item for item in prelist if item.GetText()]
         return itemlist
 
@@ -77,7 +78,7 @@ class BooTreeItem(TreeItem):
         child = self.dom.importNode(self.defaultNode, True)
         parent.appendChild(child)
         self.writeDom2File()
-        child = BooTreeItem(parent, self.dom, self.filePath)
+        child = BooTreeItem(parent, self.dom, self.filePath, self.topObj)
         child.setValue('level', str(int(self.getValue('level')) + 1))
 
     def deleteNode(self):
@@ -85,7 +86,7 @@ class BooTreeItem(TreeItem):
         parent = self.node.parentNode
         parent.removeChild(node)
         self.writeDom2File()
-        parent = BooTreeItem(parent, self.dom, self.filePath)
+        parent = BooTreeItem(parent, self.dom, self.filePath, self.topObj)
 
 
 class BooTreeNode(TreeNode):
@@ -118,11 +119,13 @@ class BooTreeNode(TreeNode):
         self.canvas.bind("<Control-KeyPress-]>", self.nextIcon)
         self.canvas.bind("<Control-KeyPress-[>", self.prevIcon)
         self.canvas.bind("<Control-KeyPress-Return>", self.addAfter)
+        self.canvas.bind("<Control-Shift-KeyPress-Return>", self.addBefore)
         self.canvas.bind("<Shift-KeyPress-Return>", self.addChild)
         self.canvas.bind("<Control-KeyPress-Up>", self.moveUp)
         self.canvas.bind("<Control-KeyPress-Down>", self.moveDown)
         self.canvas.bind("<Control-KeyPress-Left>", self.moveLeft)
         self.canvas.bind("<Control-KeyPress-Right>", self.moveRight)
+        self.canvas.bind("<Control-KeyPress-Delete>", self.deleteNode)
 
     def redrawIcon(self):
         self.canvas.delete(self.image_id)
@@ -162,11 +165,13 @@ class BooTreeNode(TreeNode):
     def addAfter(self, event):
         print('addAfter')
 
+    def addBefore(self, event):
+        print('addBefore')
+
     def addChild(self, event):
         self.item.addChild()
         self.item.GetSubList()
-        self.update()
-        self.expand()
+        pyBn.refresh()
 
     def moveUp(self, event):
         print('moveUp')
@@ -183,22 +188,30 @@ class BooTreeNode(TreeNode):
     def deleteNode(self, event):
         self.item.deleteNode()
         self.item.GetSubList()
-        self.update()
-        self.expand()
+        pyBn.refresh()
 
-def main():
-    root = Tk()
-    root.configure(bd=0, bg="yellow")
-    root.focus_set()
-    sc = ScrolledCanvas(root, bg="white", highlightthickness=0, takefocus=1)
-    sc.frame.pack(expand=1, fill="both")
-    boo = 'test_files/test.boo'
-    dom = parse(boo)
-    item = BooTreeItem(dom.documentElement, dom, boo)
-    node = BooTreeNode(sc.canvas, None, item)
-    node.expand()
-    root.mainloop()
+class PyBooguNote():
+
+    def __init__(self, boo = 'test_files/test.boo'):
+        self.root = Tk()
+        self.root.configure(bd=0, bg="yellow")
+        self.root.focus_set()
+        self.sc = ScrolledCanvas(self.root, bg="white", highlightthickness=0, takefocus=1)
+        self.sc.frame.pack(expand=1, fill="both")
+        self.boo = boo
+
+    def refresh(self, clear = True):
+        if clear:
+            del(self.dom)
+            del(self.item)
+            del(self.node)
+        self.dom = parse(self.boo)
+        self.item = BooTreeItem(self.dom.documentElement, self.dom, self.boo, self)
+        self.node = BooTreeNode(self.sc.canvas, None, self.item)
+        self.node.expand()
 
 
 if __name__ == '__main__':
-    main()
+    pyBn = PyBooguNote()
+    pyBn.refresh(False)
+    pyBn.root.mainloop()
