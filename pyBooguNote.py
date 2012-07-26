@@ -11,12 +11,11 @@ booAttributes = ('content', 'icon', 'branch', 'block', 'level', 'IsShown', 'IsBo
 
 class BooTreeItem(TreeItem):
     """TreeItem implemention of BooguNote boo file"""
-    def __init__(self, node, dom, filePath, topObj):
+    def __init__(self, node, dom, filePath):
         super().__init__()
         self.node = node
         self.dom = dom
         self.filePath = filePath
-        self.topObj = topObj
         self.defaultNode = parse('defaultNode.boo').childNodes[0]
 
     def GetText(self):
@@ -43,7 +42,7 @@ class BooTreeItem(TreeItem):
     def GetSubList(self):
         parent = self.node
         children = parent.childNodes
-        prelist = [BooTreeItem(node, self.dom, self.filePath, self.topObj) for node in children]
+        prelist = [BooTreeItem(node, self.dom, self.filePath) for node in children]
         itemlist = [item for item in prelist if item.GetText()]
         return itemlist
 
@@ -78,7 +77,7 @@ class BooTreeItem(TreeItem):
         child = self.dom.importNode(self.defaultNode, True)
         parent.appendChild(child)
         self.writeDom2File()
-        child = BooTreeItem(parent, self.dom, self.filePath, self.topObj)
+        child = BooTreeItem(parent, self.dom, self.filePath)
         child.setValue('level', str(int(self.getValue('level')) + 1))
 
     def deleteNode(self):
@@ -86,7 +85,7 @@ class BooTreeItem(TreeItem):
         parent = self.node.parentNode
         parent.removeChild(node)
         self.writeDom2File()
-        parent = BooTreeItem(parent, self.dom, self.filePath, self.topObj)
+        parent = BooTreeItem(parent, self.dom, self.filePath)
 
 
 class BooTreeNode(TreeNode):
@@ -206,7 +205,7 @@ class PyBooguNote():
             del(self.item)
             del(self.node)
         self.dom = parse(self.boo)
-        self.item = BooTreeItem(self.dom.documentElement, self.dom, self.boo, self)
+        self.item = BooTreeItem(self.dom.documentElement, self.dom, self.boo)
         self.node = BooTreeNode(self.sc.canvas, None, self.item)
         self.node.expand()
 
