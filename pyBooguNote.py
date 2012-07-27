@@ -5,17 +5,15 @@ from tkinter import Tk, PhotoImage
 from xml.dom.minidom import parse
 from idlelib.TreeWidget import TreeItem, TreeNode, ScrolledCanvas
 
-# <item content="" icon="none" branch="close" block="narrow" level="0" IsShown="true" IsBold="false" ShowBranch="false" TextColor="00000000" BkgrdColor="ffffff00" ModifyTime="2012-02-19 15:40:18" IsFile="false">
+# <item content = "" icon = "none" branch = "close" block = "narrow" level = "0" IsShown = "true" IsBold = "false" ShowBranch = "false" TextColor = "00000000" BkgrdColor = "ffffff00" ModifyTime = "2012-02-19 15:40:18" IsFile = "false">
 bnIcons = ('none', 'flag', 'tick', 'cross', 'star', 'question', 'warning', 'idea')
 booAttributes = ('content', 'icon', 'branch', 'block', 'level', 'IsShown', 'IsBold', 'ShowBranch', 'TextColor', 'BkgrdColor', 'ModifyTime', 'IsFile')
 
 class BooTreeItem(TreeItem):
-    """TreeItem implemention of BooguNote boo file"""
-    def __init__(self, node, dom, filePath):
+    """TreeItem implemention of BooguNote boo file, with xml.dom.minidom"""
+    def __init__(self, node):
         super().__init__()
         self.node = node
-        self.dom = dom
-        self.filePath = filePath
         self.defaultNode = parse('defaultNode.boo').childNodes[0]
 
     def GetText(self):
@@ -42,7 +40,7 @@ class BooTreeItem(TreeItem):
     def GetSubList(self):
         parent = self.node
         children = parent.childNodes
-        prelist = [BooTreeItem(node, self.dom, self.filePath) for node in children]
+        prelist = [BooTreeItem(node) for node in children]
         itemlist = [item for item in prelist if item.GetText()]
         return itemlist
 
@@ -54,42 +52,63 @@ class BooTreeItem(TreeItem):
 
     def getValue(self, booAttribute):
         node = self.node
-        if node.nodeType == node.ELEMENT_NODE and node.nodeName == 'item' and booAttribute in booAttributes:
-            for (name, value) in node.attributes.items():
-                if name == booAttribute:
-                    return value
+        if node.nodeType == node.ELEMENT_NODE and node.nodeName == 'item':
+            if booAttribute in booAttributes:
+                for (name, value) in node.attributes.items():
+                    if name == booAttribute:
+                        return value
+            else:
+                print('Error on getting value:', booAttribute)
 
     def setValue(self, booAttribute, newValue):
         node = self.node
-        if node.nodeType == node.ELEMENT_NODE and node.nodeName == 'item' and booAttribute in booAttributes:
-            node.attributes[booAttribute] = newValue
-            self.writeDom2File()
-        else:
-            print('Error on setting value:', booAttribute, newValue)
+        if node.nodeType == node.ELEMENT_NODE and node.nodeName == 'item':
+            if booAttribute in booAttributes:
+                node.attributes[booAttribute] = newValue
+                self.writeDom2File()
+            else:
+                print('Error on setting value:', booAttribute, newValue)
 
     def writeDom2File(self):
-        f = codecs.open(self.filePath, 'w', 'utf-8')
-        f.write(self.dom.toxml())
+        f = codecs.open(filePath, 'w', 'utf-8')
+        f.write(dom.toxml())
         f.close()
+
+    def addNode(self, parent, child):
+        parent.appendChild(child)
+        self.writeDom2File()
+        curItem = BooTreeItem(child)
+        curItem.setValue('IsShown', 'true')
+        curItem.setValue('branch', 'open')
+        return curItem
 
     def addChild(self):
         parent = self.node
-        child = self.dom.importNode(self.defaultNode, True)
-        parent.appendChild(child)
-        self.writeDom2File()
-        child = BooTreeItem(parent, self.dom, self.filePath)
+        child = dom.importNode(self.defaultNode, True)
+        child = self.addNode(parent, child)
         child.setValue('level', str(int(self.getValue('level')) + 1))
+        self.setValue('branch', 'open')
+
+    def addAfter(self):
+        parent = self.node.parentNode
+        child = dom.importNode(self.defaultNode, True)
+        child = self.addNode(parent, child)
+        child.setValue('level', self.getValue('level'))
+
+    def addBefore(self):
+        pass
 
     def deleteNode(self):
         node = self.node
         parent = self.node.parentNode
         parent.removeChild(node)
         self.writeDom2File()
-        parent = BooTreeItem(parent, self.dom, self.filePath)
+        parent = BooTreeItem(parent)
+        curItem = parent
 
 
 class BooTreeNode(TreeNode):
-    """Extends the built-in TreeNode class to display BooguNote icons"""
+    """Extension of the built-in TreeNode class, to provide BooguNote UI interaction features"""
     def __init__(self, canvas, parent, item):
         super(BooTreeNode, self).__init__(canvas, parent, item)
         self.canvas = canvas
@@ -107,7 +126,7 @@ class BooTreeNode(TreeNode):
             ext = ext or ".gif"
             iconPath = os.path.join(os.path.dirname(__file__), 'icons')
             fullname = os.path.join(iconPath, file + ext)
-            image = PhotoImage(master=self.canvas, file=fullname)
+            image = PhotoImage(master = self.canvas, file = fullname)
             self.iconimages[name] = image
             return image
         else:
@@ -145,11 +164,20 @@ class BooTreeNode(TreeNode):
                         if i == 0:
                             return bnIcons[-1]
                         else:
-                            return bnIcons[i-1]
+                            return bnIcons[i - 1]
                     else:
                         print('Invalid direction:', direction)    
         else:
             print('Not selected!')
+
+    def expand(self, event = None):
+        super().expand()
+        if self.item.getValue('branch') != 'open':
+            self.item.setValue('branch', 'open')
+
+    def collapse(self, event = None):
+        super().collapse()
+        self.item.setValue('branch', 'close')
 
     def nextIcon(self, event):
         newIcon = self.getNewIcon('next')
@@ -162,14 +190,14 @@ class BooTreeNode(TreeNode):
         self.redrawIcon()
 
     def addAfter(self, event):
-        print('addAfter')
+        self.item.addAfter()
+        pyBn.refresh()
 
     def addBefore(self, event):
         print('addBefore')
 
     def addChild(self, event):
         self.item.addChild()
-        self.item.GetSubList()
         pyBn.refresh()
 
     def moveUp(self, event):
@@ -186,31 +214,37 @@ class BooTreeNode(TreeNode):
 
     def deleteNode(self, event):
         self.item.deleteNode()
-        self.item.GetSubList()
         pyBn.refresh()
 
 class PyBooguNote():
-
-    def __init__(self, boo = 'test_files/test.boo'):
+    """Main class"""
+    def __init__(self):
         self.root = Tk()
-        self.root.configure(bd=0, bg="yellow")
+        self.root.configure(bd = 0, bg = "yellow")
         self.root.focus_set()
-        self.sc = ScrolledCanvas(self.root, bg="white", highlightthickness=0, takefocus=1)
-        self.sc.frame.pack(expand=1, fill="both")
-        self.boo = boo
+        self.sc = ScrolledCanvas(self.root, bg = "white", highlightthickness = 0, takefocus = 1)
+        self.sc.frame.pack(expand = 1, fill = "both")
+        self.item = BooTreeItem(dom.documentElement)
 
     def refresh(self, clear = True):
         if clear:
-            del(self.dom)
-            del(self.item)
             del(self.node)
-        self.dom = parse(self.boo)
-        self.item = BooTreeItem(self.dom.documentElement, self.dom, self.boo)
         self.node = BooTreeNode(self.sc.canvas, None, self.item)
         self.node.expand()
+        self.expandChildren(self.node)
+
+    def expandChildren(self, node):
+        for child in node.children:
+            if child.item.getValue('branch') == 'open':
+                child.expand()
+                if child.children:
+                    self.expandChildren(child)
 
 
 if __name__ == '__main__':
+    filePath = 'test_files/test.boo'
+    dom = parse(filePath)
+    curItem = None
     pyBn = PyBooguNote()
     pyBn.refresh(False)
     pyBn.root.mainloop()
