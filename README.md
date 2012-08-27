@@ -19,3 +19,5 @@ Features:
 ** [TODO] Update "level"
 * [TODO] Add sibling node before/after current node
 ** [TODO] Update "level"
+* Compatibility
+** [TODO] Add encoding and standalone attribute to document root
