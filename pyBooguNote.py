@@ -2,28 +2,37 @@
 
 import sys, os, codecs
 from tkinter import Tk, PhotoImage
-from xml.dom.minidom import parse
+from xml.dom.minidom import parse, parseString
 from idlelib.TreeWidget import TreeItem, TreeNode, ScrolledCanvas
 
-# <item content = "" icon = "none" branch = "close" block = "narrow" level = "0" IsShown = "true" IsBold = "false" ShowBranch = "false" TextColor = "00000000" BkgrdColor = "ffffff00" ModifyTime = "2012-02-19 15:40:18" IsFile = "false">
 bnIcons = ('none', 'flag', 'tick', 'cross', 'star', 'question', 'warning', 'idea')
 booAttributes = ('content', 'icon', 'branch', 'block', 'level', 'IsShown', 'IsBold', 'ShowBranch', 'TextColor', 'BkgrdColor', 'ModifyTime', 'IsFile')
+defaultNode = parseString('<item content="New Node" icon="none" branch="close" block="narrow" level="0" IsShown="true" IsBold="false" ShowBranch="false" TextColor="00000000" BkgrdColor="ffffff00" ModifyTime="2012-02-19 15:40:18" IsFile="false" />').firstChild
+defaultFile = parseString('''<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<root DefaultSaveDir="" DefaultSaveExtension="png" version="7">
+  <item content="New Node" icon="none" branch="close" block="narrow" level="0" IsShown="true" IsBold="false" ShowBranch="false" TextColor="00000000" BkgrdColor="ffffff00" ModifyTime="2012-02-19 15:40:18" IsFile="false" />
+</root>''')
 
 class BooTreeItem(TreeItem):
     """TreeItem implemention of BooguNote boo file, with xml.dom.minidom"""
     def __init__(self, node):
         super().__init__()
         self.node = node
-        self.defaultNode = parse('defaultNode.boo').childNodes[0]
 
     def GetText(self):
-        return self.getValue('content')
+        node = self.node
+        if node.nodeType == node.ELEMENT_NODE:
+            if node.nodeName == 'item':
+                return self.getValue('content')
+            elif node.nodeName == 'root':
+                return ' '
 
     # def GetLabelText(self):
     #     return 'Label Text'
 
     def IsEditable(self):
-        return True
+        node = self.node
+        return node.nodeType == node.ELEMENT_NODE and node.nodeName == 'item'
 
     def SetText(self, text):
         return self.setValue('content', text)
@@ -71,7 +80,7 @@ class BooTreeItem(TreeItem):
 
     def writeDom2File(self):
         f = codecs.open(filePath, 'w', 'utf-8')
-        f.write(dom.toxml())
+        dom.writexml(f, encoding='UTF-8')
         f.close()
 
     def addNode(self, parent, child):
@@ -84,14 +93,19 @@ class BooTreeItem(TreeItem):
 
     def addChild(self):
         parent = self.node
-        child = dom.importNode(self.defaultNode, True)
+        child = dom.importNode(defaultNode, True)
         child = self.addNode(parent, child)
-        child.setValue('level', str(int(self.getValue('level')) + 1))
+        parent_level = self.getValue('level')
+        if parent_level:
+            parent_level = int(parent_level)
+        else:
+            parent_level = -1
+        child.setValue('level', str(parent_level + 1))
         self.setValue('branch', 'open')
 
     def addAfter(self):
         parent = self.node.parentNode
-        child = dom.importNode(self.defaultNode, True)
+        child = dom.importNode(defaultNode, True)
         child = self.addNode(parent, child)
         child.setValue('level', self.getValue('level'))
 
