@@ -1,0 +1,12 @@
+"""
+Script for building the Mac OS X app of pyBooguNote.
+
+Usage:
+    python3 setup.py py2app
+"""
+from setuptools import setup
+
+setup(
+    app=['pyBooguNote.py'],
+    setup_requires=["py2app"],
+)
